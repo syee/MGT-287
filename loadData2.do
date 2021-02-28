@@ -124,13 +124,125 @@ by symbol date, sort: gen dups = _n != 1
 drop if dups == 1
 
 xtset symbol_id date
+
 gen sentiment_change_raw = D.symbol_date_sentiment
 label variable sentiment_change_raw "raw change in sentiment"
 gen sentiment_change_percentage = D.symbol_date_sentiment/L.symbol_date_sentiment
 label variable sentiment_change_percentage "percentage change in sentiment"
 
+gen sentiment_raw_week = symbol_date_sentiment - L7.symbol_date_sentiment
+label variable sentiment_raw_week "week raw change in sentiment"
+gen sentiment_percentage_week = sentiment_raw_week/L7.symbol_date_sentiment
+label variable sentiment_percentage_week "week percentage change in sentiment"
+
+gen sentiment_raw_month = symbol_date_sentiment - L30.symbol_date_sentiment
+label variable sentiment_raw_month "month raw change in sentiment"
+gen sentiment_percentage_month = sentiment_raw_month/L30.symbol_date_sentiment
+label variable sentiment_percentage_month "month percentage change in sentiment"
+
+gen sentiment_raw_2month = symbol_date_sentiment - L60.symbol_date_sentiment
+label variable sentiment_raw_2month "2 month raw change in sentiment"
+gen sentiment_percentage_2month = sentiment_raw_2month/L60.symbol_date_sentiment
+label variable sentiment_percentage_2month "2 month percentage change in sentiment"
+
+gen sentiment_raw_3month = symbol_date_sentiment - L90.symbol_date_sentiment
+label variable sentiment_raw_3month "3 month raw change in sentiment"
+gen sentiment_percentage_3month = sentiment_raw_3month/L90.symbol_date_sentiment
+label variable sentiment_percentage_3month "3 month percentage change in sentiment"
+
+
+gen flag_spy = symbol == "SPY"
+bysort date (flag_spy): gen spy_difference = symbol_date_sentiment - symbol_date_sentiment[_N]
+// collapse (sum) marketcap*sentiment marketcap, by(date)
+// gen marketcap*sentiment/marketcap
+
+
+
+
+// bysort symbol (date): gen sentiment_change_raw = D.symbol_date_sentiment
+// label variable sentiment_change_raw "raw change in sentiment"
+// bysort symbol (date): gen sentiment_change_percentage = D.symbol_date_sentiment/L.symbol_date_sentiment
+// label variable sentiment_change_percentage "percentage change in sentiment"
+
+// bysort symbol (date): gen sentiment_raw_week = symbol_date_sentiment - symbol_date_sentiment[_n-7]
+// label variable sentiment_raw_week "week raw change in sentiment"
+// bysort symbol (date): gen sentiment_percentage_week = sentiment_raw_week/symbol_date_sentiment[_n-7]
+// label variable sentiment_percentage_week "week percentage change in sentiment"
+
+// bysort symbol (date): gen sentiment_raw_month = symbol_date_sentiment - symbol_date_sentiment[_n-30]
+// label variable sentiment_raw_month "month raw change in sentiment"
+// bysort symbol (date): gen sentiment_percentage_month = sentiment_raw_month/symbol_date_sentiment[_n-30]
+// label variable sentiment_percentage_month "month percentage change in sentiment"
+
+// bysort symbol (date): gen sentiment_raw_2month = symbol_date_sentiment - symbol_date_sentiment[_n-60]
+// label variable sentiment_raw_2month "2 month raw change in sentiment"
+// bysort symbol (date): gen sentiment_percentage_2month = sentiment_raw_2month/symbol_date_sentiment[_n-60]
+// label variable sentiment_percentage_2month "2 month percentage change in sentiment"
+
+// bysort symbol (date): gen sentiment_raw_3month = symbol_date_sentiment - symbol_date_sentiment[_n-90]
+// label variable sentiment_raw_3month "3 month raw change in sentiment"
+// bysort symbol (date): gen sentiment_percentage_3month = sentiment_raw_3month/symbol_date_sentiment[_n-90]
+// label variable sentiment_percentage_3month "3 month percentage change in sentiment"
+
+
+
+
+// gen sentiment_change_raw_spy = sentiment_change_raw - 
+
+
+
 * This .dta has a single observation for each symbol-date
 save message_complete_flat_sample, replace
+***************************************************
+
+
+***************************************************
+* Import stock data
+use "/Users/stevenyee/Documents/UCSD/UCSDEconomics/Winter2021/MGT287/finalProject/data/compustat_full.dta"
+
+* For sample
+rename tic TICKER
+rename datadate date
+keep if TICKER == "AAPL" | TICKER == "TSLA"
+
+* Create market capitalization and share turnover variables
+gen marketcap = prccd*cshoc
+gen shareturnover = cshtrd/cshoc
+
+* Convert stirng sic code to float
+gen num_sic = real(sic)
+drop sic
+rename num_sic sic
+
+* Identify SICCD on last day of data in case SICCD changes over time
+bysort TICKER (date): gen nvals = (_n == _N)
+egen sic2 = sum(sic) if nvals == 1, by(TICKER)
+egen sic3 = sum(sic2), by(TICKER)
+drop sic2
+drop nvals
+rename sic sic_old
+rename sic3 sic
+label variable sic "Standard Industrial Code on last day of data"
+
+
+save compustat_full_sample, replace
+
+use "/Users/stevenyee/Documents/UCSD/UCSDEconomics/Winter2021/MGT287/finalProject/data/famafrench3factor_log.dta"
+
+rename DATE date
+
+* For sample
+keep if TICKER == "AAPL" | TICKER == "TSLA"
+
+save famafrench3_log_sample, replace
+
+merge 1:1 TICKER date using compustat_full_sample
+keep if _merge == 3
+drop _merge
+
+
+
+
 
 
 
