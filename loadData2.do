@@ -123,8 +123,15 @@ save message_complete_sample2, replace
 by symbol date, sort: gen dups = _n != 1
 drop if dups == 1
 
+
+* Compare stock sentiments to SPY sentiment
+gen flag_spy = symbol == "SPY"
+bysort date (flag_spy): gen spy_difference = symbol_date_sentiment - symbol_date_sentiment[_N]
+
 xtset symbol_id date
 
+
+* Compute changes in sentiment
 gen sentiment_change_raw = D.symbol_date_sentiment
 label variable sentiment_change_raw "raw change in sentiment"
 gen sentiment_change_percentage = D.symbol_date_sentiment/L.symbol_date_sentiment
@@ -151,44 +158,70 @@ gen sentiment_percentage_3month = sentiment_raw_3month/L90.symbol_date_sentiment
 label variable sentiment_percentage_3month "3 month percentage change in sentiment"
 
 
-gen flag_spy = symbol == "SPY"
-bysort date (flag_spy): gen spy_difference = symbol_date_sentiment - symbol_date_sentiment[_N]
+* Compute average sentiment
+gen sentiment_avg_week = symbol_date_sentiment
+forval i = 1/6{
+	bysort symbol (date): replace sentiment_avg_week = sentiment_avg_week + symbol_date_sentiment[_n-`i']
+}
+replace sentiment_avg_week = sentiment_avg_week/7
+label variable sentiment_avg_week "week average sentiment"
+
+gen sentiment_avg_month = symbol_date_sentiment
+forval i = 1/29{
+	bysort symbol (date): replace sentiment_avg_month = sentiment_avg_month + symbol_date_sentiment[_n-`i']
+}
+replace sentiment_avg_month = sentiment_avg_month/30
+label variable sentiment_avg_month "month average sentiment"
+
+gen sentiment_avg_2month = symbol_date_sentiment
+forval i = 1/59{
+	bysort symbol (date): replace sentiment_avg_2month = sentiment_avg_2month + symbol_date_sentiment[_n-`i']
+}
+replace sentiment_avg_2month = sentiment_avg_2month/60
+label variable sentiment_avg_2month "2 month average sentiment"
+
+gen sentiment_avg_3month = symbol_date_sentiment
+forval i = 1/89{
+	bysort symbol (date): replace sentiment_avg_3month = sentiment_avg_3month + symbol_date_sentiment[_n-`i']
+}
+replace sentiment_avg_3month = sentiment_avg_3month/90
+label variable sentiment_avg_3month "3 month average sentiment"
+
+
+* Compute average sentiment relative to SPY
+gen sentiment_spy_avg_week = spy_difference
+forval i = 1/6{
+	bysort symbol (date): replace sentiment_spy_avg_week = sentiment_spy_avg_week + spy_difference[_n-`i']
+}
+replace sentiment_spy_avg_week = sentiment_spy_avg_week/7
+label variable sentiment_spy_avg_week "week average spy sentiment difference"
+
+gen sentiment_spy_avg_month = spy_difference
+forval i = 1/29{
+	bysort symbol (date): replace sentiment_spy_avg_month = sentiment_spy_avg_month + spy_difference[_n-`i']
+}
+replace sentiment_spy_avg_month = sentiment_spy_avg_month/30
+label variable sentiment_spy_avg_month "month average spy sentiment difference"
+
+gen sentiment_spy_avg_2month = spy_difference
+forval i = 1/59{
+	bysort symbol (date): replace sentiment_spy_avg_2month = sentiment_spy_avg_2month + spy_difference[_n-`i']
+}
+replace sentiment_spy_avg_2month = sentiment_spy_avg_2month/60
+label variable sentiment_spy_avg_2month "2 month average spy sentiment difference"
+
+gen sentiment_spy_avg_3month = spy_difference
+forval i = 1/89{
+	bysort symbol (date): replace sentiment_spy_avg_3month = sentiment_spy_avg_3month + spy_difference[_n-`i']
+}
+replace sentiment_spy_avg_3month = sentiment_spy_avg_3month/90
+label variable sentiment_spy_avg_3month "3 month average spy sentiment difference"
+
+
+
+
 // collapse (sum) marketcap*sentiment marketcap, by(date)
 // gen marketcap*sentiment/marketcap
-
-
-
-
-// bysort symbol (date): gen sentiment_change_raw = D.symbol_date_sentiment
-// label variable sentiment_change_raw "raw change in sentiment"
-// bysort symbol (date): gen sentiment_change_percentage = D.symbol_date_sentiment/L.symbol_date_sentiment
-// label variable sentiment_change_percentage "percentage change in sentiment"
-
-// bysort symbol (date): gen sentiment_raw_week = symbol_date_sentiment - symbol_date_sentiment[_n-7]
-// label variable sentiment_raw_week "week raw change in sentiment"
-// bysort symbol (date): gen sentiment_percentage_week = sentiment_raw_week/symbol_date_sentiment[_n-7]
-// label variable sentiment_percentage_week "week percentage change in sentiment"
-
-// bysort symbol (date): gen sentiment_raw_month = symbol_date_sentiment - symbol_date_sentiment[_n-30]
-// label variable sentiment_raw_month "month raw change in sentiment"
-// bysort symbol (date): gen sentiment_percentage_month = sentiment_raw_month/symbol_date_sentiment[_n-30]
-// label variable sentiment_percentage_month "month percentage change in sentiment"
-
-// bysort symbol (date): gen sentiment_raw_2month = symbol_date_sentiment - symbol_date_sentiment[_n-60]
-// label variable sentiment_raw_2month "2 month raw change in sentiment"
-// bysort symbol (date): gen sentiment_percentage_2month = sentiment_raw_2month/symbol_date_sentiment[_n-60]
-// label variable sentiment_percentage_2month "2 month percentage change in sentiment"
-
-// bysort symbol (date): gen sentiment_raw_3month = symbol_date_sentiment - symbol_date_sentiment[_n-90]
-// label variable sentiment_raw_3month "3 month raw change in sentiment"
-// bysort symbol (date): gen sentiment_percentage_3month = sentiment_raw_3month/symbol_date_sentiment[_n-90]
-// label variable sentiment_percentage_3month "3 month percentage change in sentiment"
-
-
-
-
-// gen sentiment_change_raw_spy = sentiment_change_raw - 
-
 
 
 * This .dta has a single observation for each symbol-date
@@ -203,7 +236,15 @@ use "/Users/stevenyee/Documents/UCSD/UCSDEconomics/Winter2021/MGT287/finalProjec
 * For sample
 rename tic TICKER
 rename datadate date
-keep if TICKER == "AAPL" | TICKER == "TSLA"
+// keep if TICKER == "AAPL" | TICKER == "TSLA"
+gen year = year(date)
+gen month = month(date)
+keep if year == 2016 & month == 6
+
+* Only keep one instance of each symbol-date. Unclear why there are duplicates :(
+by TICKER date, sort: gen dups = _n != 1
+drop if dups == 1
+drop dups
 
 * Create market capitalization and share turnover variables
 gen marketcap = prccd*cshoc
@@ -230,29 +271,78 @@ save compustat_full_sample, replace
 use "/Users/stevenyee/Documents/UCSD/UCSDEconomics/Winter2021/MGT287/finalProject/data/famafrench3factor_log.dta"
 
 rename DATE date
+gen year = year(date)
+gen month = month(date)
 
 * For sample
-keep if TICKER == "AAPL" | TICKER == "TSLA"
+// keep if TICKER == "AAPL" | TICKER == "TSLA"
+keep if year == 2016 & month == 6
+drop if missing(TICKER)
+
+* Only keep one instance of each symbol-date. Unclear why there are duplicates :(
+by TICKER date, sort: gen dups = _n != 1
+drop if dups == 1
+drop dups
 
 save famafrench3_log_sample, replace
 
+* Merge Compustat data with Fama French data to get excess returns and total volatility
 merge 1:1 TICKER date using compustat_full_sample
 keep if _merge == 3
 drop _merge
 
 
+egen ticker_id = group(TICKER)
+xtset ticker_id date
+
+* Get average changes in excess returns
+bysort TICKER (date): gen exreturn_raw_week = exret - exret[_n-5]
+label variable exreturn_raw_week "week raw change in excess returns"
+bysort TICKER (date): gen exreturn_percentage_week = exreturn_raw_week/exret[_n-5]
+label variable exreturn_percentage_week "week percentage change in excess returns"
+
+bysort TICKER (date): gen exreturn_raw_month = exret - exret[_n-20]
+label variable exreturn_raw_month "month raw change in excess returns"
+bysort TICKER (date): gen exreturn_percentage_month = exreturn_raw_month/exret[_n-20]
+label variable exreturn_percentage_month "month percentage change in excess returns"
 
 
+* Get average excess returns
+gen exreturn_avg_raw_week = exret
+forval i = 1/4{
+	bysort TICKER (date): replace exreturn_avg_raw_week = exreturn_avg_raw_week + exret[_n-`i']
+}
+replace exreturn_avg_raw_week = exreturn_avg_raw_week/5
+label variable exreturn_avg_raw_week "week average excess returns"
+
+gen exreturn_avg_raw_month = exret
+forval i = 1/20{
+	bysort TICKER (date): replace exreturn_avg_raw_month = exreturn_avg_raw_month + exret[_n-`i']
+}
+replace exreturn_avg_raw_month = exreturn_avg_raw_month/20
+label variable exreturn_avg_raw_month "month average excess returns"
+
+save compu_ff3_log_sample, replace
+***************************************************
 
 
+***************************************************
+* Get value weighted sentiment
+rename TICKER symbol
 
 
+merge m:1 symbol date using message_complete_flat_sample
+keep if _merge == 3
+gen value_weighted_sentiment = marketcap*symbol_date_sentiment
+save test_compu_ff3_log_sample, replace
 
+collapse (sum) value_weighted_sentiment marketcap cshoc cshtrd, by(date)
+gen market_sentiment = value_weighted_sentiment/marketcap
+gen market_turnover = cshtrd/cshoc
 
+save market_sentiment, replace
 
+merge 1:m date using test_compu_ff3_log_sample, generate(_merge2)
+drop value_weighted_sentiment
 
-
-
-
-
-
+save complete_sample, replace
