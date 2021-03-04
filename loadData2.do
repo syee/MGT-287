@@ -156,42 +156,16 @@ gen sentiment_raw_3month = symbol_date_sentiment - L90.symbol_date_sentiment
 label variable sentiment_raw_3month "3 month raw change in sentiment"
 gen sentiment_percentage_3month = sentiment_raw_3month/L90.symbol_date_sentiment
 label variable sentiment_percentage_3month "3 month percentage change in sentiment"
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
+
 ***********
 ***********
 
-// Add in ADR receipts
 // Don't drop all data/compustat_full
 // Google trends correlation
 
 ***********
 ***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
-***********
+
 
 * Compute average sentiment
 rangestat (mean) sentiment_avg_week = symbol_date_sentiment, interval(date -6 0) by(symbol)
@@ -208,32 +182,16 @@ label variable sentiment_avg_3month "3 month average sentiment"
 
 
 * Compute average sentiment relative to SPY
-gen sentiment_spy_avg_week = spy_difference
-forval i = 1/6{
-	bysort symbol (date): replace sentiment_spy_avg_week = sentiment_spy_avg_week + spy_difference[_n-`i']
-}
-replace sentiment_spy_avg_week = sentiment_spy_avg_week/7
+rangestat (mean) sentiment_spy_avg_week = spy_difference, interval(date -6 0) by(symbol)
 label variable sentiment_spy_avg_week "week average spy sentiment difference"
 
-gen sentiment_spy_avg_month = spy_difference
-forval i = 1/29{
-	bysort symbol (date): replace sentiment_spy_avg_month = sentiment_spy_avg_month + spy_difference[_n-`i']
-}
-replace sentiment_spy_avg_month = sentiment_spy_avg_month/30
+rangestat (mean) sentiment_spy_avg_month = spy_difference, interval(date -29 0) by(symbol)
 label variable sentiment_spy_avg_month "month average spy sentiment difference"
 
-gen sentiment_spy_avg_2month = spy_difference
-forval i = 1/59{
-	bysort symbol (date): replace sentiment_spy_avg_2month = sentiment_spy_avg_2month + spy_difference[_n-`i']
-}
-replace sentiment_spy_avg_2month = sentiment_spy_avg_2month/60
+rangestat (mean) sentiment_spy_avg_2month = spy_difference, interval(date -59 0) by(symbol)
 label variable sentiment_spy_avg_2month "2 month average spy sentiment difference"
 
-gen sentiment_spy_avg_3month = spy_difference
-forval i = 1/89{
-	bysort symbol (date): replace sentiment_spy_avg_3month = sentiment_spy_avg_3month + spy_difference[_n-`i']
-}
-replace sentiment_spy_avg_3month = sentiment_spy_avg_3month/90
+rangestat (mean) sentiment_spy_avg_3month = spy_difference, interval(date -89 0) by(symbol)
 label variable sentiment_spy_avg_3month "3 month average spy sentiment difference"
 
 
@@ -260,10 +218,12 @@ drop if dups == 1
 drop dups
 
 * Create market capitalization and share turnover variables
-gen marketcap = prccd*cshoc
-gen shareturnover = cshtrd/cshoc
+replace adrrc = 1 if missing(adrrc)
+gen shares_outstanding = cshoc/adrrc // This step is necessary adjustment to get accurates shares outstanding
+gen marketcap = prccd*shares_outstanding
+gen shareturnover = cshtrd/shares_outstanding
 
-* Convert stirng sic code to float
+* Convert string sic code to float
 gen num_sic = real(sic)
 drop sic
 rename num_sic sic
@@ -341,63 +301,66 @@ save compu_ff3_log_sample, replace
 
 ***************************************************
 * Get value weighted sentiment
+
 rename TICKER symbol
 
-
+* Merge sentiment data and Compustat/Fama French data
 merge m:1 symbol date using message_complete_flat_sample
-keep if _merge == 3
+bysort symbol (date): replace marketcap = marketcap[_n-1] if marketcap >= . //Fill in weekend/holiday market cap data from previous market cap
 gen value_weighted_sentiment = marketcap*symbol_date_sentiment
 save test_compu_ff3_log_sample, replace
 
-collapse (sum) value_weighted_sentiment marketcap cshoc cshtrd, by(date)
+* Calculates value weighted market sentiment and market turnover
+collapse (sum) value_weighted_sentiment marketcap shares_outstanding cshtrd, by(date)
 gen market_sentiment = value_weighted_sentiment/marketcap
-gen market_turnover = cshtrd/cshoc
-drop cshtrd cshoc value_weighted_sentiment
+gen market_turnover = cshtrd/shares_outstanding
+drop cshtrd shares_outstanding value_weighted_sentiment
+rename marketcap marketcap_total
+save market_sentiment_sample, replace
 
-save market_sentiment, replace
-
+* Bring market sentiment and market turnover back into stock data
 merge 1:m date using test_compu_ff3_log_sample, generate(_merge2)
 drop value_weighted_sentiment
 
 * Convert sic code to Fama French 49 industries
 sicff sic, ind(49) gen(ff49industry)
 
-
 * Compute average sentiment relative to market sentiment
 gen market_sentiment_difference = symbol_date_sentiment - market_sentiment
 
-gen sentiment_market_avg_week = market_sentiment_difference
-forval i = 1/6{
-	bysort symbol (date): replace sentiment_market_avg_week = sentiment_market_avg_week + market_sentiment_difference[_n-`i']
-}
-replace sentiment_market_avg_week = sentiment_market_avg_week/7
+rangestat (mean) sentiment_market_avg_week = market_sentiment_difference, interval(date -6 0) by(symbol)
 label variable sentiment_market_avg_week "week average market sentiment difference"
 
-gen sentiment_market_avg_month = market_sentiment_difference
-forval i = 1/29{
-	bysort symbol (date): replace sentiment_market_avg_month = sentiment_market_avg_month + market_sentiment_difference[_n-`i']
-}
-replace sentiment_market_avg_month = sentiment_market_avg_month/30
+rangestat (mean) sentiment_market_avg_month = market_sentiment_difference, interval(date -29 0) by(symbol)
 label variable sentiment_market_avg_month "month average market sentiment difference"
 
-gen sentiment_market_avg_2month = market_sentiment_difference
-forval i = 1/59{
-	bysort symbol (date): replace sentiment_market_avg_2month = sentiment_market_avg_2month + market_sentiment_difference[_n-`i']
-}
-replace sentiment_market_avg_2month = sentiment_market_avg_2month/60
+rangestat (mean) sentiment_market_avg_2month = market_sentiment_difference, interval(date -59 0) by(symbol)
 label variable sentiment_market_avg_2month "2 month average market sentiment difference"
 
-gen sentiment_market_avg_3month = market_sentiment_difference
-forval i = 1/89{
-	bysort symbol (date): replace sentiment_market_avg_3month = sentiment_market_avg_3month + market_sentiment_difference[_n-`i']
-}
-replace sentiment_market_avg_3month = sentiment_market_avg_3month/90
+rangestat (mean) sentiment_market_avg_3month = market_sentiment_difference, interval(date -89 0) by(symbol)
 label variable sentiment_market_avg_3month "3 month average market sentiment difference"
 
 
 * Create stock turnover relative to market turnover
 rename shareturnover share_turnover
 gen relative_turnover = share_turnover - market_turnover
+
+* Calculate firm market cap rank only on trading days and for firms which have sentiment
+preserve
+tempfile trade_sentiment
+keep if _merge == 3
+bysort date (marketcap): gen marketcap_ranking = _n /_N
+save `trade_sentiment'
+restore
+* This fills in weekend/holiday market cap ranks 
+merge 1:1 symbol date using `trade_sentiment', generate(_oldmerge)
+bysort symbol (date): replace marketcap_ranking = marketcap_ranking[_n-1] if marketcap_ranking >= .
+drop _oldmerge
+
+* Calculate average relative turnover
+preserve
+tempfile relative_to
+drop if share_turnover == .
 
 gen rel_turnover_avg_week = relative_turnover
 forval i = 1/4{
@@ -412,11 +375,25 @@ forval i = 1/20{
 }
 replace rel_turnover_avg_month = rel_turnover_avg_month/20
 label variable rel_turnover_avg_month "month average relative turnover"
+// collapse (mean) market_sentiment, by(date) This line can give summary stats for market_sentiment
+save `relative_to'
+restore
+* This fills in weekend/holiday average relative turnover
+merge 1:1 symbol date using `relative_to', generate(_oldmerge)
+bysort symbol (date): replace relative_turnover = relative_turnover[_n-1] if relative_turnover >= .
+bysort symbol (date): replace rel_turnover_avg_week = rel_turnover_avg_week[_n-1] if rel_turnover_avg_week >= .
+bysort symbol (date): replace rel_turnover_avg_month = rel_turnover_avg_month[_n-1] if rel_turnover_avg_month >= .
+drop _oldmerge
 
-rename marketcap marketcap_total
-gen marketcap = prccd*cshoc
-
-bysort date (marketcap): gen marketcap_ranking = _n /_N
-
+* This creates a marketcap decile ranking
+egen marketcap_decile = cut(marketcap_ranking), at(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.01)
+replace marketcap_decile = marketcap_decile * 10 + 1
 
 save complete_sample, replace
+
+
+
+
+
+
+
