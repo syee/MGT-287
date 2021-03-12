@@ -77,7 +77,7 @@ format date %td
 gen month = month(date)
 gen year = year(date)
 
-save message_complete, replace
+save message_complete2, replace
 ***************************************************
 
 
@@ -112,7 +112,8 @@ label variable symbol_date_sentiment "user-weighted sentiment for symbol-date"
 drop nvals
 
 // save message_complete, replace
-save message_complete_sample2, replace
+// save message_complete_sample2, replace
+save message_complete3, replace
 ***************************************************
 
 
@@ -130,31 +131,36 @@ bysort date (flag_spy): gen spy_difference = symbol_date_sentiment - symbol_date
 
 xtset symbol_id date
 
-
+// rangestat (mean) sentiment_avg_week = symbol_date_sentiment, interval(date -6 0) by(symbol)
 * Compute changes in sentiment
-gen sentiment_change_raw = D.symbol_date_sentiment
+rangestat (first) sentiment_minus_1 = symbol_date_sentiment, interval(date -1 0) by(symbol)
+gen sentiment_change_raw = symbol_date_sentiment - sentiment_minus_1
 label variable sentiment_change_raw "raw change in sentiment"
-gen sentiment_change_percentage = D.symbol_date_sentiment/L.symbol_date_sentiment
+gen sentiment_change_percentage = sentiment_change_raw/sentiment_minus_1
 label variable sentiment_change_percentage "percentage change in sentiment"
 
-gen sentiment_raw_week = symbol_date_sentiment - L7.symbol_date_sentiment
+rangestat (first) sentiment_minus_7 = symbol_date_sentiment, interval(date -6 0) by(symbol)
+gen sentiment_raw_week = symbol_date_sentiment - sentiment_minus_7
 label variable sentiment_raw_week "week raw change in sentiment"
-gen sentiment_percentage_week = sentiment_raw_week/L7.symbol_date_sentiment
+gen sentiment_percentage_week = sentiment_raw_week/sentiment_minus_7
 label variable sentiment_percentage_week "week percentage change in sentiment"
 
-gen sentiment_raw_month = symbol_date_sentiment - L30.symbol_date_sentiment
+rangestat (first) sentiment_minus_30 = symbol_date_sentiment, interval(date -29 0) by(symbol)
+gen sentiment_raw_month = symbol_date_sentiment - sentiment_minus_30
 label variable sentiment_raw_month "month raw change in sentiment"
-gen sentiment_percentage_month = sentiment_raw_month/L30.symbol_date_sentiment
+gen sentiment_percentage_month = sentiment_raw_month/sentiment_minus_30
 label variable sentiment_percentage_month "month percentage change in sentiment"
 
-gen sentiment_raw_2month = symbol_date_sentiment - L60.symbol_date_sentiment
+rangestat (first) sentiment_minus_60 = symbol_date_sentiment, interval(date -59 0) by(symbol)
+gen sentiment_raw_2month = symbol_date_sentiment - sentiment_minus_60
 label variable sentiment_raw_2month "2 month raw change in sentiment"
-gen sentiment_percentage_2month = sentiment_raw_2month/L60.symbol_date_sentiment
+gen sentiment_percentage_2month = sentiment_raw_2month/sentiment_minus_60
 label variable sentiment_percentage_2month "2 month percentage change in sentiment"
 
-gen sentiment_raw_3month = symbol_date_sentiment - L90.symbol_date_sentiment
+rangestat (first) sentiment_minus_90 = symbol_date_sentiment, interval(date -89 0) by(symbol)
+gen sentiment_raw_3month = symbol_date_sentiment - sentiment_minus_90
 label variable sentiment_raw_3month "3 month raw change in sentiment"
-gen sentiment_percentage_3month = sentiment_raw_3month/L90.symbol_date_sentiment
+gen sentiment_percentage_3month = sentiment_raw_3month/sentiment_minus_90
 label variable sentiment_percentage_3month "3 month percentage change in sentiment"
 
 ***********
@@ -196,7 +202,8 @@ label variable sentiment_spy_avg_3month "3 month average spy sentiment differenc
 
 
 * This .dta has a single observation for each symbol-date
-save message_complete_flat_sample, replace
+// save message_complete_flat_sample, replace
+save message_complete_flat, replace
 ***************************************************
 
 
@@ -210,7 +217,7 @@ rename datadate date
 // keep if TICKER == "AAPL" | TICKER == "TSLA"
 gen year = year(date)
 gen month = month(date)
-keep if year == 2016 & month == 6
+// keep if year == 2016 & month == 6
 
 * Only keep one instance of each symbol-date. Unclear why there are duplicates :(
 by TICKER date, sort: gen dups = _n != 1
@@ -239,7 +246,8 @@ rename sic3 sic
 label variable sic "Standard Industrial Code on last day of data"
 
 
-save compustat_full_sample, replace
+// save compustat_full_sample2, replace
+save compustat_full2, replace
 
 use "/Users/stevenyee/Documents/UCSD/UCSDEconomics/Winter2021/MGT287/finalProject/data/famafrench3factor_log.dta"
 
@@ -249,7 +257,7 @@ gen month = month(date)
 
 * For sample
 // keep if TICKER == "AAPL" | TICKER == "TSLA"
-keep if year == 2016 & month == 6
+// keep if year == 2016 & month == 6
 drop if missing(TICKER)
 
 * Only keep one instance of each symbol-date. Unclear why there are duplicates :(
@@ -257,10 +265,12 @@ by TICKER date, sort: gen dups = _n != 1
 drop if dups == 1
 drop dups
 
-save famafrench3_log_sample, replace
+// save famafrench3_log_sample, replace
+save famafrench3_log2, replace
 
 * Merge Compustat data with Fama French data to get excess returns and total volatility
-merge 1:1 TICKER date using compustat_full_sample
+// merge 1:1 TICKER date using compustat_full_sample
+merge 1:1 TICKER date using compustat_full2
 keep if _merge == 3
 drop _merge
 
@@ -269,6 +279,18 @@ egen ticker_id = group(TICKER)
 xtset ticker_id date
 
 * Get changes in excess returns
+// rangestat (first) exreturn_minus_7 = exret, interval(date -6 0) by(symbol)
+// gen exreturn_raw_week = exret - exreturn_minus_7
+// label variable exreturn_raw_week "week raw change in excess returns"
+// gen exreturn_percentage_week = exreturn_raw_week/exreturn_minus_7
+// label variable exreturn_percentage_week "week percentage change in excess returns"
+
+// rangestat (first) exreturn_minus_30 = exret, interval(date -29 0) by(symbol)
+// gen exreturn_raw_month = exret - exreturn_minus_30
+// label variable exreturn_raw_month "month raw change in excess returns"
+// gen exreturn_percentage_month = exreturn_raw_month/exreturn_minus_30
+// label variable exreturn_percentage_month "month percentage change in excess returns"
+
 bysort TICKER (date): gen exreturn_raw_week = exret - exret[_n-5]
 label variable exreturn_raw_week "week raw change in excess returns"
 bysort TICKER (date): gen exreturn_percentage_week = exreturn_raw_week/exret[_n-5]
@@ -281,6 +303,14 @@ label variable exreturn_percentage_month "month percentage change in excess retu
 
 
 * Get average excess returns
+// rangestat (mean) exreturn_avg_raw_week = exret, interval(date -6 0) by(symbol)
+// label variable exreturn_avg_raw_week "week average excess returns"
+
+// rangestat (mean) exreturn_avg_raw_month = exret, interval(date -29 0) by(symbol)
+// label variable exreturn_avg_raw_month "month average excess returns"
+
+
+
 gen exreturn_avg_raw_week = exret
 forval i = 1/4{
 	bysort TICKER (date): replace exreturn_avg_raw_week = exreturn_avg_raw_week + exret[_n-`i']
@@ -295,7 +325,8 @@ forval i = 1/20{
 replace exreturn_avg_raw_month = exreturn_avg_raw_month/20
 label variable exreturn_avg_raw_month "month average excess returns"
 
-save compu_ff3_log_sample, replace
+// save compu_ff3_log_sample, replace
+save compu_ff3_log, replace
 ***************************************************
 
 
@@ -305,10 +336,13 @@ save compu_ff3_log_sample, replace
 rename TICKER symbol
 
 * Merge sentiment data and Compustat/Fama French data
-merge m:1 symbol date using message_complete_flat_sample
+// merge m:1 symbol date using message_complete_flat_sample
+merge m:1 symbol date using message_complete_flat
 bysort symbol (date): replace marketcap = marketcap[_n-1] if marketcap >= . //Fill in weekend/holiday market cap data from previous market cap
 gen value_weighted_sentiment = marketcap*symbol_date_sentiment
-save test_compu_ff3_log_sample, replace
+// save temp_compu_ff3_log_sample, replace
+save temp_compu_ff3_log, replace
+// save temp_compu_ff4_log, replace
 
 * Calculates value weighted market sentiment and market turnover
 collapse (sum) value_weighted_sentiment marketcap shares_outstanding cshtrd, by(date)
@@ -316,10 +350,13 @@ gen market_sentiment = value_weighted_sentiment/marketcap
 gen market_turnover = cshtrd/shares_outstanding
 drop cshtrd shares_outstanding value_weighted_sentiment
 rename marketcap marketcap_total
-save market_sentiment_sample, replace
+// save market_sentiment_sample, replace
+// save market_sentiment_sample, replace
+save market_sentiment, replace
 
 * Bring market sentiment and market turnover back into stock data
-merge 1:m date using test_compu_ff3_log_sample, generate(_merge2)
+// merge 1:m date using temp_compu_ff3_log_sample, generate(_merge2)
+merge 1:m date using temp_compu_ff3_log, generate(_merge2)
 drop value_weighted_sentiment
 
 * Convert sic code to Fama French 49 industries
@@ -389,11 +426,61 @@ drop _oldmerge
 egen marketcap_decile = cut(marketcap_ranking), at(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.01)
 replace marketcap_decile = marketcap_decile * 10 + 1
 
-save complete_sample, replace
+
+drop symbol_id // This symbol_id is not defined for all observations so drop it and define it again
+egen symbol_id = group(symbol)
+
+// save complete_sample, replace
+save complete, replace
+save complete4, replace
+set rmsg on, permanently
+
+preserve
+tempfile sentiment_rankings
+keep if _merge != 1
+bysort date (sentiment_market_avg_week): gen sent_mrkt_avg_week_rank = _n /_N
+bysort date (sentiment_market_avg_month): gen sent_mrkt_avg_month_rank = _n /_N
+bysort date (market_sentiment_difference): gen sent_mrkt_diff_rank = _n /_N
+save `sentiment_rankings'
+restore
+* This fills in weekend/holiday market cap ranks 
+merge 1:1 symbol date using `sentiment_rankings', generate(_oldmerge2)
+bysort symbol (date): replace sent_mrkt_diff_rank = sent_mrkt_diff_rank[_n-1] if sent_mrkt_diff_rank >= .
+bysort symbol (date): replace sent_mrkt_avg_week_rank = sent_mrkt_avg_week_rank[_n-1] if sent_mrkt_avg_week_rank >= .
+bysort symbol (date): replace sent_mrkt_avg_month_rank = sent_mrkt_avg_month_rank[_n-1] if sent_mrkt_avg_month_rank >= .
+drop _oldmerge2
+
+egen sentiment_daily_decile = cut(sent_mrkt_diff_rank), at(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.01)
+replace sentiment_daily_decile = sentiment_daily_decile * 10 + 1
+egen sentiment_weekly_decile = cut(sent_mrkt_avg_week_rank), at(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.01)
+replace sentiment_weekly_decile = sentiment_weekly_decile * 10 + 1
+egen sentiment_monthly_decile = cut(sent_mrkt_avg_month_rank), at(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.01)
+replace sentiment_monthly_decile = sentiment_monthly_decile * 10 + 1
+save complete, replace
+
+save complete4, replace
+
+// xtreg exreturn_avg_raw_week L.sentiment_avg_week
+xtset symbol_id date
+xtreg exret L.sentiment_market_avg_week if marketcap_decile ==1, fe robust
+xtreg exret L.sentiment_market_avg_week if marketcap_decile ==10, fe robust
+xtreg exret L.sentiment_market_avg_week, fe robust
+xtreg exret L.sentiment_market_avg_week if marketcap_decile ==1 & sentiment_weekly_decile==10, fe robust
+
+eststo 		clear
+eststo: 		xtreg exret L.sentiment_market_avg_week, fe robust // Significant coefficient
+eststo: xtreg exret L.sentiment_market_avg_week if marketcap_decile ==1, fe robust // Significant coefficient
+eststo: xtreg exret L.sentiment_market_avg_week if marketcap_decile ==10, fe robust // Insignificant coefficient
+
+esttab 			using "table1.csv", replace booktabs stats(N) b(a3) starlevels(*  0.10 ** 0.05 *** 0.01) label gaps nomtitles title(1-day Excess Return, US\label{tab1})
 
 
+// eststo 		clear
+// eststo: 		qui reg ex1 block0246, robust
+// eststo: 		qui reg ex1 block0 block246, robust
+// eststo: 		qui reg ex1 block0 block2 block4 block6, robust
+// esttab 			using "table1.csv", replace booktabs stats(N) b(a3) starlevels(*  0.10 ** 0.05 *** 0.01) label gaps nomtitles title(1-day Excess Return, US\label{tab1})
+//Change labels since this is what will show up in latex
 
-
-
-
+esttab 			using "table1.tex", replace booktabs stats(N) b(a3) starlevels(*  0.10 ** 0.05 *** 0.01) label gaps nomtitles title(1-day Excess Return, US\label{tab1})
 
